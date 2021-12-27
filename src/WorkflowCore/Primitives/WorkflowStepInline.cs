@@ -6,7 +6,7 @@ namespace WorkflowCore.Primitives
 {
     public class WorkflowStepInline : WorkflowStep<InlineStepBody>
     {
-        public Func<IStepExecutionContext, ExecutionResult> Body { get; set; }
+        public Func<InlineStepBody, IStepExecutionContext, ExecutionResult> Body { get; set; }
 
         public override IStepBody ConstructBody(IServiceProvider serviceProvider)
         {

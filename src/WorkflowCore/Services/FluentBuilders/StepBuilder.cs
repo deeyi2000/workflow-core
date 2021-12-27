@@ -58,7 +58,7 @@ namespace WorkflowCore.Services
             return stepBuilder;
         }
 
-        public IStepBuilder<TData, InlineStepBody> Then(Func<IStepExecutionContext, ExecutionResult> body)
+        public IStepBuilder<TData, InlineStepBody> Then(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body)
         {            
             WorkflowStepInline newStep = new WorkflowStepInline();
             newStep.Body = body;
@@ -465,7 +465,7 @@ namespace WorkflowCore.Services
             return this;
         }
 
-        public IStepBuilder<TData, TStepBody> CompensateWith(Func<IStepExecutionContext, ExecutionResult> body)
+        public IStepBuilder<TData, TStepBody> CompensateWith(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body)
         {
             WorkflowStepInline newStep = new WorkflowStepInline();
             newStep.Body = body;

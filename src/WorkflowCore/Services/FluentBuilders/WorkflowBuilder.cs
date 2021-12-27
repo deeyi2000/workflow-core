@@ -143,7 +143,7 @@ namespace WorkflowCore.Services
             return stepBuilder;
         }
 
-        public IStepBuilder<TData, InlineStepBody> StartWith(Func<IStepExecutionContext, ExecutionResult> body)
+        public IStepBuilder<TData, InlineStepBody> StartWith(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body)
         {
             WorkflowStepInline newStep = new WorkflowStepInline();
             newStep.Body = body;
@@ -189,7 +189,7 @@ namespace WorkflowCore.Services
             return Start().Then(newStep);
         }
 
-        public IStepBuilder<TData, InlineStepBody> Then(Func<IStepExecutionContext, ExecutionResult> body)
+        public IStepBuilder<TData, InlineStepBody> Then(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body)
         {
             return Start().Then(body);
         }
@@ -274,7 +274,7 @@ namespace WorkflowCore.Services
 
         private IStepBuilder<TData, InlineStepBody> Start()
         {
-            return StartWith(_ => ExecutionResult.Next());
+            return StartWith((s, c) => ExecutionResult.Next());
         }
     }
 }

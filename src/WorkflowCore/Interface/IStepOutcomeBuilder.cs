@@ -14,7 +14,7 @@ namespace WorkflowCore.Interface
 
         IStepBuilder<TData, TStep> Then<TStep>(IStepBuilder<TData, TStep> step) where TStep : IStepBody;
 
-        IStepBuilder<TData, InlineStepBody> Then(Func<IStepExecutionContext, ExecutionResult> body);
+        IStepBuilder<TData, InlineStepBody> Then(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body);
 
         void EndWorkflow();
     }

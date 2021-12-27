@@ -31,7 +31,7 @@ namespace WorkflowCore.Interface
     /// </summary>
     /// <param name="body"></param>
     /// <returns></returns>
-    IStepBuilder<TData, InlineStepBody> Then(Func<IStepExecutionContext, ExecutionResult> body);
+    IStepBuilder<TData, InlineStepBody> Then(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body);
 
     /// <summary>
     /// Specify an inline next step in the workflow

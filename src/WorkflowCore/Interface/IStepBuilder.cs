@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq.Expressions;
 using WorkflowCore.Models;
+using WorkflowCore.Primitives;
 
 namespace WorkflowCore.Interface
 {
@@ -126,7 +127,7 @@ namespace WorkflowCore.Interface
         /// </summary>
         /// <param name="body"></param>
         /// <returns></returns>
-        IStepBuilder<TData, TStepBody> CompensateWith(Func<IStepExecutionContext, ExecutionResult> body);
+        IStepBuilder<TData, TStepBody> CompensateWith(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body);
 
         /// <summary>
         /// Undo step if unhandled exception is thrown by this step

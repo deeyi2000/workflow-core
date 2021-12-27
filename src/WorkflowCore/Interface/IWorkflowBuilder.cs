@@ -24,7 +24,7 @@ namespace WorkflowCore.Interface
     {
         IStepBuilder<TData, TStep> StartWith<TStep>(Action<IStepBuilder<TData, TStep>> stepSetup = null) where TStep : IStepBody;
 
-        IStepBuilder<TData, InlineStepBody> StartWith(Func<IStepExecutionContext, ExecutionResult> body);
+        IStepBuilder<TData, InlineStepBody> StartWith(Func<InlineStepBody, IStepExecutionContext, ExecutionResult> body);
 
         IStepBuilder<TData, ActionStepBody> StartWith(Action<IStepExecutionContext> body);
 
