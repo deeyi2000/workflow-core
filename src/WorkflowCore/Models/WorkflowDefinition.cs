@@ -29,6 +29,7 @@ namespace WorkflowCore.Models
         Retry = 0,
         Suspend = 1,
         Terminate = 2,
-        Compensate = 3
+        Compensate = 3,
+        RetryTerminate = 4
     }
 }

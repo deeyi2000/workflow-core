@@ -59,6 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddTransient<IWorkflowErrorHandler, RetryHandler>();
             services.AddTransient<IWorkflowErrorHandler, TerminateHandler>();
             services.AddTransient<IWorkflowErrorHandler, SuspendHandler>();
+            services.AddTransient<IWorkflowErrorHandler, RetryTerminateHandler>();
 
             services.AddSingleton<IGreyList, GreyList>();
             services.AddSingleton<IWorkflowController, WorkflowController>();
