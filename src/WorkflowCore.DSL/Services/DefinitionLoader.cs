@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using WorkflowCore.Interface;
 using WorkflowCore.Models;
@@ -17,10 +18,46 @@ namespace WorkflowCore.Services.DefinitionStorage
     public class DefinitionLoader : IDefinitionLoader
     {
         private readonly IWorkflowRegistry _registry;
+        private readonly ITypeResolver _typeResolver;
+        
+        // ParsingConfig to allow access to commonly used .NET methods like object.Equals
+        private static readonly ParsingConfig ParsingConfig = new ParsingConfig
+        {
+            AllowNewToEvaluateAnyType = true,
+            AreContextKeywordsEnabled = true
+        };
 
-        public DefinitionLoader(IWorkflowRegistry registry)
+        // Transform expressions to be compatible with System.Linq.Dynamic.Core 1.6.0+
+        private static string TransformExpression(string expression)
+        {
+            if (string.IsNullOrEmpty(expression))
+                return expression;
+
+            // Transform object.Equals(a, b) to Convert.ToBoolean(a) == Convert.ToBoolean(b)
+            // This is a simple regex replacement for the common pattern
+            var objectEqualsPattern = @"object\.Equals\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)";
+            var transformed = Regex.Replace(expression, objectEqualsPattern, 
+                match => 
+                {
+                    var arg1 = match.Groups[1].Value.Trim();
+                    var arg2 = match.Groups[2].Value.Trim();
+                    
+                    // If arg2 is a boolean literal, convert arg1 to boolean and compare
+                    if (arg2 == "true" || arg2 == "false")
+                    {
+                        return $"Convert.ToBoolean({arg1}) == {arg2}";
+                    }
+                    // Otherwise, convert both to strings for comparison
+                    return $"Convert.ToString({arg1}) == Convert.ToString({arg2})";
+                });
+
+            return transformed;
+        }
+
+        public DefinitionLoader(IWorkflowRegistry registry, ITypeResolver typeResolver)
         {
             _registry = registry;
+            _typeResolver = typeResolver;
         }
 
         public WorkflowDefinition LoadDefinition(string source, Func<string, DefinitionSourceV1> deserializer)
@@ -92,7 +129,7 @@ namespace WorkflowCore.Services.DefinitionStorage
                 {
                     var cancelExprType = typeof(Expression<>).MakeGenericType(typeof(Func<,>).MakeGenericType(dataType, typeof(bool)));
                     var dataParameter = Expression.Parameter(dataType, "data");
-                    var cancelExpr = DynamicExpressionParser.ParseLambda(new[] { dataParameter }, typeof(bool), nextStep.CancelCondition);
+                    var cancelExpr = DynamicExpressionParser.ParseLambda(ParsingConfig, false, new[] { dataParameter }, typeof(bool), TransformExpression(nextStep.CancelCondition));
                     targetStep.CancelCondition = cancelExpr;
                 }
 
@@ -215,15 +252,16 @@ namespace WorkflowCore.Services.DefinitionStorage
             foreach (var output in source.Outputs)
             {
                 var stepParameter = Expression.Parameter(stepType, "step");
-                var sourceExpr = DynamicExpressionParser.ParseLambda(new[] { stepParameter }, typeof(object), output.Value);
+                var sourceExpr = DynamicExpressionParser.ParseLambda(ParsingConfig, false, new[] { stepParameter }, typeof(object), TransformExpression(output.Value));
 
                 var dataParameter = Expression.Parameter(dataType, "data");
 
 
-                if(output.Key.Contains(".") || output.Key.Contains("["))
+                if (output.Key.Contains(".") || output.Key.Contains("["))
                 {
                     AttachNestedOutput(output, step, source, sourceExpr, dataParameter);
-                }else
+                }
+                else
                 {
                     AttachDirectlyOutput(output, step, dataType, sourceExpr, dataParameter);
                 }
@@ -259,11 +297,11 @@ namespace WorkflowCore.Services.DefinitionStorage
 
         }
 
-        private void AttachNestedOutput( KeyValuePair<string, string> output, WorkflowStep step, StepSourceV1 source, LambdaExpression sourceExpr, ParameterExpression dataParameter)
+        private void AttachNestedOutput(KeyValuePair<string, string> output, WorkflowStep step, StepSourceV1 source, LambdaExpression sourceExpr, ParameterExpression dataParameter)
         {
             PropertyInfo propertyInfo = null;
             String[] paths = output.Key.Split('.');
-         
+
             Expression targetProperty = dataParameter;
 
             bool hasAddOutput = false;
@@ -341,7 +379,7 @@ namespace WorkflowCore.Services.DefinitionStorage
 
             foreach (var nextStep in source.SelectNextStep)
             {
-                var sourceDelegate = DynamicExpressionParser.ParseLambda(new[] { dataParameter, outcomeParameter }, typeof(object), nextStep.Value).Compile();
+                var sourceDelegate = DynamicExpressionParser.ParseLambda(ParsingConfig, false, new[] { dataParameter, outcomeParameter }, typeof(object), TransformExpression(nextStep.Value)).Compile();
                 Expression<Func<object, object, bool>> sourceExpr = (data, outcome) => System.Convert.ToBoolean(sourceDelegate.DynamicInvoke(data, outcome));
                 step.Outcomes.Add(new ExpressionOutcome<object>(sourceExpr)
                 {
@@ -352,13 +390,13 @@ namespace WorkflowCore.Services.DefinitionStorage
 
         private Type FindType(string name)
         {
-            return Type.GetType(name, true, true);
+            return _typeResolver.FindType(name);
         }
 
         private static Action<IStepBody, object, IStepExecutionContext> BuildScalarInputAction(KeyValuePair<string, object> input, ParameterExpression dataParameter, ParameterExpression contextParameter, ParameterExpression environmentVarsParameter, PropertyInfo stepProperty)
         {
             var expr = System.Convert.ToString(input.Value);
-            var sourceExpr = DynamicExpressionParser.ParseLambda(new[] { dataParameter, contextParameter, environmentVarsParameter }, typeof(object), expr);
+            var sourceExpr = DynamicExpressionParser.ParseLambda(ParsingConfig, false, new[] { dataParameter, contextParameter, environmentVarsParameter }, typeof(object), TransformExpression(expr));
 
             void acn(IStepBody pStep, object pData, IStepExecutionContext pContext)
             {
@@ -391,7 +429,7 @@ namespace WorkflowCore.Services.DefinitionStorage
                     {
                         if (prop.Name.StartsWith("@"))
                         {
-                            var sourceExpr = DynamicExpressionParser.ParseLambda(new[] { dataParameter, contextParameter, environmentVarsParameter }, typeof(object), prop.Value.ToString());
+                            var sourceExpr = DynamicExpressionParser.ParseLambda(ParsingConfig, false, new[] { dataParameter, contextParameter, environmentVarsParameter }, typeof(object), TransformExpression(prop.Value.ToString()));
                             object resolvedValue = sourceExpr.Compile().DynamicInvoke(pData, pContext, Environment.GetEnvironmentVariables());
                             subobj.Remove(prop.Name);
                             subobj.Add(prop.Name.TrimStart('@'), JToken.FromObject(resolvedValue));

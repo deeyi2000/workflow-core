@@ -1,4 +1,5 @@
 ﻿using System;
+using Azure.Core;
 using Microsoft.Azure.Cosmos;
 using WorkflowCore.Providers.Azure.Interface;
 
@@ -10,9 +11,19 @@ namespace WorkflowCore.Providers.Azure.Services
 
         private CosmosClient _client;
 
-        public CosmosClientFactory(string connectionString)
+        public CosmosClientFactory(string connectionString, CosmosClientOptions clientOptions = null)
         {
-            _client = new CosmosClient(connectionString);
+            _client = new CosmosClient(connectionString, clientOptions);
+        }
+
+        public CosmosClientFactory(CosmosClient client)
+        {
+            _client = client;
+        }
+
+        public CosmosClientFactory(string accountEndpoint, TokenCredential tokenCredential)
+        {
+            _client = new CosmosClient(accountEndpoint, tokenCredential);
         }
 
         public CosmosClient GetCosmosClient()
